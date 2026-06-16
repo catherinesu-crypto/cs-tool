@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>萊旅遊 — 需求單整理工具</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: "Microsoft JhengHei","PingFang TC",Arial,sans-serif;
+    background: #FAF7EF; min-height:100vh; padding:18px; color:#6B6147;
+  }
+  .header {
+    background: linear-gradient(135deg,#F3EAD3,#EADFC4);
+    color:#7D6F4F; padding:16px 24px; border-radius:16px; margin-bottom:14px;
+    border:1px solid #E5D9BE;
+  }
+  .header h1 { font-size:19px; font-weight:700; }
+  .header p { font-size:12.5px; color:#A2926B; margin-top:2px; }
+  .tabs { display:flex; gap:8px; margin-bottom:14px; }
+  .tab-btn {
+    padding:10px 22px; border:none; border-radius:12px 12px 0 0;
+    font-size:14px; font-weight:700; cursor:pointer; background:#EDE4CE; color:#A2926B;
+  }
+  .tab-btn.active { background:#F3EAD3; color:#7D6F4F; box-shadow:0 -2px 6px rgba(210,195,155,.25); }
+  .view { display:none; }
+  .view.active { display:block; }
+  .container { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:1400px; margin:0 auto; }
+  @media(max-width:900px){ .container{ grid-template-columns:1fr; } }
+  .panel {
+    background:#FFFFFF; border-radius:14px; padding:16px;
+    border:1px solid #E8DEC6; box-shadow:0 1px 5px rgba(200,185,150,.1);
+  }
+  .panel h2 { font-size:15px; color:#7D6F4F; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .panel h2 .badge { background:#EDE4CE; color:#8C7D55; font-size:11px; padding:3px 12px; border-radius:20px; font-weight:normal; }
+  textarea {
+    width:100%; height:360px; padding:12px; border:1.5px solid #E5D9BE;
+    border-radius:10px; font-size:12px; font-family:"Consolas",monospace;
+    background:#FCFAF4; resize:vertical; color:#6B6147;
+  }
+  textarea:focus { outline:2px solid #D8C9A3; }
+  .btn-row { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  button.act {
+    padding:10px 22px; border:none; border-radius:10px; font-size:14px;
+    font-weight:700; cursor:pointer; transition:transform .1s,opacity .2s;
+  }
+  button.act:hover { transform:translateY(-1px); opacity:.9; }
+  .btn-main { background:#D8C48A; color:#5E5230; flex:1; }
+  .btn-clear { background:#EDE4CE; color:#8C7D55; }
+  .btn-copy { background:#B8C896; color:#4A5530; }
+  .btn-pend { background:#E0BC8C; color:#6B4F25; }
+  .output-area {
+    background:#FCFAF4; border:1.5px solid #E5D9BE; border-radius:10px;
+    padding:14px; min-height:360px; max-height:600px; overflow-y:auto;
+    font-size:13px; line-height:1.75; color:#6B6147;
+  }
+  .client-card {
+    background:#FFFFFF; border:1px solid #E8DEC6; border-left:4px solid #D8C48A;
+    border-radius:8px; padding:12px 14px; margin-bottom:14px; position:relative;
+  }
+  .client-card .card-content { white-space:pre-wrap; }
+  .card-btns { position:absolute; top:10px; right:10px; display:flex; gap:6px; }
+  .mini-btn { font-size:11px; padding:4px 11px; border-radius:8px; border:none; cursor:pointer; font-weight:700; }
+  .mini-copy { background:#EDE4CE; color:#8C7D55; }
+  .mini-pend { background:#E8D0A8; color:#7D5A2E; }
+  .special-tags { margin-top:10px; padding-top:10px; border-top:1px dashed #E5D9BE; display:flex; flex-wrap:wrap; gap:6px; }
+  .tag { font-size:12px; padding:4px 12px; border-radius:20px; font-weight:700; }
+  .tag-old { background:#EAD8B8; color:#7D5A2E; }
+  .tag-new { background:#DCE8C4; color:#5E7240; }
+  .tag-ref { background:#D5E2EC; color:#456B8C; }
+  .tag-msg { background:#EDDCE4; color:#8C5570; }
+  .hint { font-size:12px; color:#A2926B; margin-top:8px; line-height:1.6; }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#B8C896; color:#3D4A22; padding:10px 24px; border-radius:30px;
+    font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:99; }
+  .toast.show { opacity:1; }
+  .stats { font-size:12px; color:#A2926B; margin-top:6px; font-weight:700; }
+  .staff-btns { display:flex; flex-wrap:wrap; gap:6px; }
+  .staff-pill {
+    padding:6px 16px; border:1.5px solid #D8C48A; border-radius:20px;
+    background:#FCFAF4; color:#7D6F4F; font-size:12.5px; font-weight:700;
+    cursor:pointer; transition:all .15s;
+  }
+  .staff-pill:hover { background:#F3EAD3; }
+  .staff-pill.selected { background:#D8C48A; color:#FFFFFF; border-color:#C9B074; }
+  .staff-edit {
+    background:#FAF7EF; border:1px dashed #D8C48A; border-radius:10px;
+    padding:12px; margin-top:8px;
+  }
+  /* 待聯繫清單 */
+  table.pend { width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.pend th { background:#EDE4CE; color:#7D6F4F; padding:8px 6px; border:1px solid #DDD0B5; font-size:11.5px; }
+  table.pend td { padding:6px; border:1px solid #E8DEC6; vertical-align:top; color:#6B6147; }
+  table.pend tr:nth-child(even) td { background:#FCFAF4; }
+  .status-pill { font-size:11px; padding:2px 9px; border-radius:12px; font-weight:700; white-space:nowrap; }
+  .st-wait { background:#EAD8B8; color:#7D5A2E; }
+  .st-retry { background:#EDE4CE; color:#7D6F4F; }
+  .st-done { background:#DCE8C4; color:#4A5530; }
+  .st-give { background:#E5D5D5; color:#856060; }
+  .cloud-bar { background:#FAF7EF; border:1px dashed #E5D9BE; border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:12.5px; color:#A2926B; }
+  .cloud-bar input { padding:6px 10px; border:1px solid #E5D9BE; border-radius:6px; width:60%; font-size:12px; }
+  .form-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .form-row label { font-size:12px; color:#8C7D55; min-width:70px; }
+  .form-row input, .form-row select, .form-row textarea {
+    padding:6px 10px; border:1px solid #E5D9BE; border-radius:6px; font-size:12px;
+    background:#FCFAF4; color:#6B6147; flex:1;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📋 萊旅遊 需求單整理工具</h1>
+  <p>整理需求單 · 跨班接力追蹤聯繫不上的客人</p>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('organize',this)">✨ 整理需求單</button>
+  <button class="tab-btn" onclick="switchTab('pending',this)">📞 待聯繫清單</button>
+</div>
+
+<!-- ═══ 整理需求單 ═══ -->
+<div class="view active" id="view-organize">
+  <div class="container">
+    <div class="panel">
+      <h2>📥 貼上需求單內容 <span class="badge">步驟 1</span></h2>
+      <textarea id="input" placeholder="操作方式：
+1. 打開下載的需求單 Excel
+2. 全選資料（含標題列）：Ctrl+A → Ctrl+C
+3. 在這裡貼上：Ctrl+V
+4. 按下方「整理」按鈕
+
+✅ 可一次貼多筆，分別整理
+✅ 系統欄位(LINE UID/IP/Hash等)自動忽略"></textarea>
+      <div class="btn-row">
+        <button class="act btn-main" onclick="processData()">✨ 整理需求單</button>
+        <button class="act btn-clear" onclick="clearInput()">清空</button>
+      </div>
+      <p class="hint">💡 整理後若客人聯繫不上，按卡片右上「轉待聯繫」加入雲端清單，下一班客服可接續。</p>
+    </div>
+
+    <div class="panel">
+      <h2>📤 整理結果 <span class="badge">步驟 2</span></h2>
+      <div class="output-area" id="output">整理結果會顯示在這裡...</div>
+      <div class="btn-row">
+        <button class="act btn-copy" onclick="copyAll()">📋 複製全部</button>
+      </div>
+      <p class="stats" id="stats"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 待聯繫清單 ═══ -->
+<div class="view" id="view-pending">
+  <div class="panel">
+    <div class="cloud-bar">
+      ☁️ 雲端連線網址（Apps Script）：
+      <input id="apiUrl" value="https://script.google.com/macros/s/AKfycbwNwPQH7dVtVgEgZio-OTIEJ4J-lgZM1mXYLMNhjxRCp5kbQ4mJiYtSdZADAIueBl-V1A/exec" placeholder="貼上你的 Apps Script 網址" />
+      <button class="act btn-clear" style="padding:6px 14px;font-size:12px" onclick="saveApiUrl()">儲存</button>
+      <button class="act btn-main" style="padding:6px 14px;font-size:12px" onclick="loadPending()">🔄 重新整理</button>
+      <span id="cloudStatus" style="margin-left:8px;font-size:11px"></span>
+    </div>
+
+    <h2>📞 待聯繫客人清單 <span class="badge" id="pendCount">0 筆</span></h2>
+
+    <div style="background:#FCFAF4;border:1px solid #E8DEC6;border-radius:10px;padding:12px;margin-bottom:12px">
+      <p style="font-size:13px;color:#7D6F4F;font-weight:700;margin-bottom:8px">➕ 手動新增一筆待聯繫</p>
+      <div class="form-row">
+        <label>整理日期</label><input id="f-date" type="date" />
+        <label>客人姓名</label><input id="f-name" />
+        <label>電話</label><input id="f-phone" />
+      </div>
+      <div class="form-row">
+        <label>狀態</label>
+        <select id="f-status">
+          <option value="待首次聯繫">待首次聯繫</option>
+          <option value="已試聯繫待回">已試聯繫待回</option>
+          <option value="已聯繫上">已聯繫上</option>
+          <option value="放棄">放棄</option>
+        </select>
+      </div>
+      <div class="form-row" style="align-items:flex-start">
+        <label style="margin-top:6px">處理客服</label>
+        <div style="flex:1">
+          <div id="staffBtns" class="staff-btns"></div>
+          <input id="f-staff" placeholder="點上方按鈕選擇，或手動輸入" style="margin-top:6px;width:100%" />
+        </div>
+        <button class="act btn-clear" style="padding:6px 12px;font-size:11px;margin-top:0" onclick="toggleStaffEdit()">⚙️ 編輯人員</button>
+      </div>
+      <div id="staffEditBox" class="staff-edit" style="display:none">
+        <p style="font-size:12px;color:#7D6F4F;font-weight:700;margin-bottom:6px">👥 客服人員清單（一行一位，改完按儲存。此名單存在本機瀏覽器）</p>
+        <textarea id="staffListEdit" rows="4" style="width:100%;font-size:12px"></textarea>
+        <div style="margin-top:6px;display:flex;gap:8px">
+          <button class="act btn-pend" style="padding:6px 16px;font-size:12px" onclick="saveStaffList()">💾 儲存名單</button>
+          <button class="act btn-clear" style="padding:6px 16px;font-size:12px" onclick="toggleStaffEdit()">取消</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>客人資料</label>
+        <textarea id="f-data" rows="2" placeholder="貼上整理好的客人資料"></textarea>
+      </div>
+      <div class="form-row">
+        <label>聯繫紀錄</label>
+        <textarea id="f-note" rows="2" placeholder="例：11/5 14:00 撥打未接 / 11/6 LINE已讀未回"></textarea>
+      </div>
+      <button class="act btn-pend" onclick="addPending()">➕ 加入清單</button>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table class="pend" id="pendTable">
+        <thead>
+          <tr>
+            <th>整理日期</th><th>客人姓名</th><th>電話</th><th>狀態</th>
+            <th>處理客服</th><th>聯繫紀錄</th><th>客人資料</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="pendBody">
+          <tr><td colspan="8" style="text-align:center;color:#A89A65;padding:20px">尚未連線雲端，或清單為空</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">💡 輪班接力：上一班把聯繫不上的客人放這裡並寫下嘗試紀錄，下一班「重新整理」就能看到，再聯繫一次後更新狀態。</p>
+  </div>
+</div>
+
+<div class="toast" id="toast">已複製！</div>
+
+<script>
+// ════ 系統欄位忽略 ════
+const IGNORE_COLS=['#分數/金額','LINE UID','填答時間','填答秒數','IP紀錄','額滿結束註記','使用者紀錄','會員時間','Hash','會員編號','自訂ID','備註'];
+const FIELD_MAP=[
+  {key:'name',match:['您的姓名']},{key:'phone',match:['聯繫電話']},
+  {key:'city',match:['哪個縣市']},{key:'service',match:['安排哪些服務']},
+  {key:'flight',match:['航班號或班機時間']},{key:'hotel',match:['飯店名稱']},
+  {key:'extra',match:['下列的需求']},{key:'adults',match:['位大人']},
+  {key:'kids',match:['位孩童']},{key:'kidAges',match:['孩童年齡']},
+  {key:'planner',match:['指定以前服務過您的規劃師']},{key:'carCountry',match:['哪個國家的包車']},
+  {key:'country',match:['欲規劃旅遊的國家']},{key:'carArea',match:['想包車的地區']},
+  {key:'carDate',match:['包車/接駁的日期']},
+  {key:'hasItinerary',match:['是否有大致想去的景點']},{key:'spots',match:['景點或行程是什麼']},
+  {key:'area',match:['哪個地區的旅遊']},{key:'budget',match:['總行程預算區間']},
+  {key:'group',match:['接受一般跟團']},{key:'shopping',match:['購物站的安排']},
+  {key:'purpose',match:['旅遊的主要目的']},{key:'depDate',match:['預計出發的日期']},
+  {key:'days',match:['預計旅遊的天數']},{key:'cabin',match:['偏好的飛機艙等']},
+  {key:'hotelStar',match:['偏好的飯店星等']},{key:'pref',match:['注重)的旅遊安排','偏好(注重']},
+  {key:'payment',match:['付款方式']},{key:'note',match:['補充或是特殊需求']},
+  {key:'contactTime',match:['簡單通話']},{key:'member',match:['萊旅遊消費過']},
+  {key:'referrer',match:['推薦人大名']},{key:'hasRef',match:['是否有推薦人']},
+  {key:'otherMsg',match:['其他聯繫渠道留言']},
+];
+const SERVICE_OPTIONS=['機+酒+包車(最完整一站式規劃)-最划算推薦','只需要包車(機票與住宿皆自理)','機票欲自理(包車行程+住宿由萊旅遊安排與代訂)','住宿欲自理(包車行程+機票由萊旅遊安排與代訂)'];
+function normalizeService(raw){
+  if(!raw)return '';
+  const t=raw.replace(/\s+/g,'');
+  if(t.includes('機+酒+包車')||t.includes('一站式'))return SERVICE_OPTIONS[0];
+  if(t.includes('只需要包車')||(t.includes('機票與住宿')&&t.includes('自理')))return SERVICE_OPTIONS[1];
+  if(t.includes('機票欲自理')||(t.includes('機票')&&t.includes('自理')&&t.includes('住宿由')))return SERVICE_OPTIONS[2];
+  if(t.includes('住宿欲自理')||(t.includes('住宿')&&t.includes('自理')&&t.includes('機票由')))return SERVICE_OPTIONS[3];
+  return raw;
+}
+function parseTSV(raw){
+  const rows=[]; let row=[],cell='',inQ=false;
+  for(let i=0;i<raw.length;i++){const ch=raw[i];
+    if(inQ){ if(ch==='"'){ if(raw[i+1]==='"'){cell+='"';i++;}else inQ=false; }else cell+=ch; }
+    else{ if(ch==='"'&&cell==='')inQ=true;
+      else if(ch==='\t'){row.push(cell);cell='';}
+      else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&raw[i+1]==='\n')i++; row.push(cell);cell=''; if(row.some(c=>c.trim()))rows.push(row); row=[]; }
+      else cell+=ch; } }
+  if(cell||row.length){row.push(cell); if(row.some(c=>c.trim()))rows.push(row);}
+  return rows;
+}
+let lastCards=[]; // 暫存整理結果供轉待聯繫
+function processData(){
+  const raw=document.getElementById('input').value;
+  if(!raw.trim()){showToast('請先貼上資料');return;}
+  const table=parseTSV(raw);
+  if(table.length<2){document.getElementById('output').textContent='⚠️ 資料不足';return;}
+  const headers=table[0]; const colIndex={};
+  FIELD_MAP.forEach(f=>{ for(let i=0;i<headers.length;i++){ const h=headers[i]||'';
+    if(IGNORE_COLS.some(ig=>h.trim()===ig))continue;
+    if(f.match.some(m=>h.includes(m))){colIndex[f.key]=i;break;} } });
+  if(colIndex['name']===undefined){document.getElementById('output').textContent='⚠️ 找不到「您的姓名」欄位';return;}
+  const out=document.getElementById('output'); out.innerHTML=''; lastCards=[]; let count=0;
+  for(let li=1;li<table.length;li++){
+    const cells=table[li];
+    const get=k=>{const idx=colIndex[k]; if(idx===undefined||idx>=cells.length)return ''; return (cells[idx]||'').replace(/\n+/g,'、').trim();};
+    const name=get('name'); if(!name)continue; count++;
+    let dupWarnings=[];
+    const kidsNum=get('kids'),kidAges=get('kidAges');
+    let kidStr=''; if(kidsNum&&kidsNum!=='0')kidStr=kidAges?formatAges(kidAges):kidsNum+'位（年齡未填）';
+    const area=get('area')||get('carArea'); const country=get('country')||get('carCountry');
+    let lines=[],n=1; const push=(l,v)=>{if(v){lines.push(`${n}.${l}：${v}`);n++;}};
+    push('姓名',name);push('電話',get('phone'));push('居住縣市',get('city'));
+    push('需要的服務',normalizeService(get('service')));push('已訂航班',get('flight'));
+    push('已訂飯店',get('hotel'));push('附加服務',get('extra'));push('大人',get('adults'));
+    push('小孩(含年齡)',kidStr);push('欲規劃旅遊的國家',country);push('欲規劃旅遊的城市/地區',area);
+    push('預算',get('budget'));push('是否接受跟團',simplify(get('group')));
+    push('是否接受購物站',simplify(get('shopping')));push('旅遊目的',get('purpose'));
+    push('出發日期',get('depDate'));push('旅遊天數',get('days'));push('艙等',get('cabin'));
+    push('飯店星等',get('hotelStar')?get('hotelStar')+'星':'');push('偏好的旅遊安排',get('pref'));
+    push('付款方式',get('payment'));push('補充需求',get('note'));push('可聯絡時間',get('contactTime'));
+    push('想去的景點/行程',formatItinerary(get('spots')));push('指定規劃師',get('planner'));
+
+    // ── 純包車：偵測重複 + 補用車日期 + 客服用車統整 ──
+    const svcNorm = normalizeService(get('service'));
+    const isCarOnly = svcNorm.indexOf('只需要包車') >= 0;
+    if(isCarOnly){
+      const carDate = get('carDate');
+      // 純包車統一顯示「預計用車日期」（重複偵測改由下方全欄位通用機制處理）
+      if(carDate){
+        const parsed = parseCarDates(carDate);
+        push('預計用車日期', parsed.display);
+      }
+      const spotsRaw = get('spots');
+      // 用車統整（從景點+日期文字判斷哪幾天包車）
+      const summary = summarizeCarUsage(spotsRaw || '', carDate || '');
+      if(summary){
+        lines.push('──────────');
+        lines.push(summary);
+      }
+    }
+    let tags=[]; const member=get('member');
+    if(member.includes('舊'))tags.push({cls:'tag-old',text:'🔁 舊萊粉（曾消費過）'});
+    else if(member.includes('新')||member.includes('否'))tags.push({cls:'tag-new',text:'🌱 新萊粉（首次詢問）'});
+    else if(member)tags.push({cls:'tag-new',text:'會員狀態：'+member});
+    const referrer=get('referrer'),hasRef=get('hasRef');
+    if(referrer&&referrer!=='沒有'&&referrer!=='無')tags.push({cls:'tag-ref',text:'👥 推薦人：'+referrer});
+    else if(hasRef&&hasRef.includes('有')&&!hasRef.includes('沒有'))tags.push({cls:'tag-ref',text:'👥 有推薦人（名字未填）'});
+    const otherMsg=get('otherMsg');
+    if(otherMsg&&!['沒有','無','否'].includes(otherMsg))tags.push({cls:'tag-msg',text:'💬 其他渠道留言：'+otherMsg});
+    // ── 全欄位重複掃描：兩兩比對所有已顯示欄位，找出內容相似的 ──
+    const fieldPairs = lines.map(function(ln){
+      const idx = ln.indexOf('：');
+      if(idx<0) return null;
+      // 取「N.欄位名」與「值」
+      const labelPart = ln.substring(0, idx).replace(/^\d+\./,'').trim();
+      const valuePart = ln.substring(idx+1).trim();
+      if(!valuePart || valuePart.length<4) return null; // 太短的略過
+      return {label:labelPart, value:valuePart};
+    }).filter(function(x){ return x; });
+
+    const dupPairs = [];
+    for(let i=0;i<fieldPairs.length;i++){
+      for(let j=i+1;j<fieldPairs.length;j++){
+        const cmp = compareTexts(fieldPairs[i].value, fieldPairs[j].value);
+        if(cmp==='same' || cmp==='similar'){
+          dupPairs.push('「'+fieldPairs[i].label+'」與「'+fieldPairs[j].label+'」');
+        }
+      }
+    }
+    // 去除重複的提醒組合
+    const uniqDupPairs = [...new Set(dupPairs)];
+    uniqDupPairs.forEach(function(p){
+      dupWarnings.push(p+'內容相似，請客服確認是否為重複填寫、需不需要刪除');
+    });
+
+    // 若有重複提醒，插到最前面
+    if(dupWarnings.length){
+      lines.unshift('⚠️【填寫重複提醒】\n'+dupWarnings.map(w=>'・'+w).join('\n'));
+    }
+    const cardText=lines.join('\n');
+    const tagsText=tags.map(t=>t.text).join('\n');
+    const fullText=cardText+(tags.length?'\n──────────\n'+tagsText:'');
+    lastCards.push({name:name,phone:get('phone'),data:fullText});
+    const idx=lastCards.length-1;
+    const card=document.createElement('div'); card.className='client-card';
+    let tagsHtml=tags.length?'<div class="special-tags">'+tags.map(t=>`<span class="tag ${t.cls}">${esc(t.text)}</span>`).join('')+'</div>':'';
+    card.innerHTML=`<div class="card-btns"><button class="mini-btn mini-copy" onclick="copyOne(this)">複製</button><button class="mini-btn mini-pend" onclick="toPending(${idx})">轉待聯繫</button></div><div class="card-content" data-copy="${escAttr(fullText)}">${esc(cardText)}</div>`+tagsHtml;
+    out.appendChild(card);
+  }
+  document.getElementById('stats').textContent=count>0?`✅ 共整理 ${count} 筆客人資料`:'⚠️ 沒有找到有效資料';
+}
+
+// ── 解析包車日期文字 ──
+function parseCarDates(raw){
+  let display = raw.replace(/\n+/g,'　').trim();
+  let dayCount = null;
+  // 抓「選N天」「N天包車」
+  const m1 = raw.match(/選\s*([一二三四五六七八九十兩\d]+)\s*天/);
+  const m2 = raw.match(/([一二三四五六七八九十兩\d]+)\s*天包車/);
+  const zh = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+  function toNum(s){ return zh[s]!==undefined?zh[s]:parseInt(s,10); }
+  if(m1) dayCount = toNum(m1[1]);
+  else if(m2) dayCount = toNum(m2[1]);
+  // 抓日期區間 8/25～8/29
+  const mr = raw.match(/(\d{1,2}\/\d{1,2})\s*[～~\-到至]\s*(\d{1,2}\/\d{1,2})/);
+  if(mr && !dayCount){ display = mr[1]+'～'+mr[2]+'（區間內選定）'; }
+  return {display:display, dayCount:dayCount};
+}
+
+// ── 分析客人的用車安排 ──
+function analyzeCarTrip(country, area, dateStr, itinerary, days){
+  let pts = [];
+  // 1. 行程型態判斷
+  if(itinerary){
+    const lines = itinerary.split(/[、\n,，]/).map(s=>s.trim()).filter(s=>s);
+    const roundTrips = lines.filter(l=>/[-→─]/.test(l));
+    if(roundTrips.length){
+      // 看是否多為「同點往返」
+      let backToBase = 0;
+      roundTrips.forEach(l=>{
+        const seg = l.split(/[-→─]/).map(s=>s.trim());
+        if(seg.length>=3 && seg[0]===seg[seg.length-1]) backToBase++;
+      });
+      if(backToBase>0 && backToBase===roundTrips.length){
+        pts.push('・屬「定點放射型」行程：以同一個城市為基地，每天當日來回周邊景點，晚上回原飯店。建議報價時以「每日包車來回」計價。');
+      } else {
+        pts.push('・屬「點到點移動型」行程：路線有跨城市移動，需確認是否每天換飯店或單純接送。');
+      }
+    }
+  }
+  // 2. 日期彈性
+  if(dateStr){
+    if(/尚未確定|未定|彈性|選/.test(dateStr)){
+      pts.push('・日期尚未敲定：客人有彈性，可主動建議避開假日／旺季以節省包車費用。');
+    } else if(/\d{1,2}\/\d{1,2}/.test(dateStr)){
+      pts.push('・日期已有具體規劃：可直接依指定日期查詢車輛與報價。');
+    }
+  }
+  // 3. 地區提醒
+  if(area){
+    if(/北海道|九州|沖繩/.test(area+country)){
+      pts.push('・'+(area.match(/北海道|九州|沖繩/)||[''])[0]+'地區幅員較大，跨城市車程可能偏長，需提醒客人單日車程上限（建議單程不超過3小時）。');
+    }
+  }
+  // 4. 天數對應
+  if(days && parseInt(days,10)>=5){
+    pts.push('・旅遊天數較長（'+days+'天），但純包車通常只用其中幾天，需與客人確認實際用車天數，其餘天數客人自理。');
+  }
+  return pts.length ? pts.join('\n') : null;
+}
+
+
+// ── 整理行程排版：內容完整保留，清掉雜亂空格與空行 ──
+function formatItinerary(raw){
+  if(!raw) return '';
+  let t = raw.replace(/\r/g,'');
+  // 清理：多個空白變一個、全形空格正規化、行首行尾空白去掉
+  t = t.replace(/[ \u3000]+/g,' ');
+  // 在每個 dayN 前確保換行
+  t = t.replace(/\s*([dD][aA][yY]\s*\d+)/g, function(m,p1){ return '\n'+p1.replace(/\s+/g,'').toLowerCase(); });
+  // 拆行、去掉空行與前後空白
+  let lines = t.split('\n').map(s=>s.trim()).filter(s=>s);
+  let out = [];
+  lines.forEach(function(ln){
+    if(/^day\d+/i.test(ln)){
+      let head = ln.match(/^day\d+/i)[0].toUpperCase();
+      let rest = ln.replace(/^day\d+\s*[:：]?\s*/i,'').trim();
+      out.push('▌'+head+(rest?'　'+rest:''));
+    } else {
+      out.push('　'+ln);
+    }
+  });
+  return '\n'+out.join('\n');
+}
+
+// ── 比對兩段文字的重複程度 ──
+// 回傳 'same'(幾乎完全相同,可自動合併) / 'similar'(高度相似,提醒人工確認) / 'diff'(不同)
+function compareTexts(a, b){
+  if(!a || !b) return 'diff';
+  const norm = s => s.replace(/[\s\u3000、,，。.\-→─（）()~～]/g,'').toLowerCase();
+  const na = norm(a), nb = norm(b);
+  if(!na || !nb) return 'diff';
+  if(na===nb) return 'same';
+  const shorter = na.length<nb.length?na:nb;
+  const longer = na.length<nb.length?nb:na;
+  // 一方幾乎完整包含另一方 → 視為相同（自動合併）
+  if(longer.indexOf(shorter)>=0 && shorter.length>=longer.length*0.7) return 'same';
+  // 開頭一大段相同（≥10字）→ 高度相似，提醒人工確認
+  let common=0;
+  const lim=Math.min(na.length,nb.length);
+  for(let i=0;i<lim;i++){ if(na[i]===nb[i]) common++; else break; }
+  if(common>=10) return 'similar';
+  // 包含一半以上 → 相似
+  if(longer.indexOf(shorter)>=0 && shorter.length>=longer.length*0.5) return 'similar';
+  return 'diff';
+}
+
+// ── 分析行程的用車安排，產生客服統整 ──
+function summarizeCarUsage(itinerary, carDate){
+  if(!itinerary) return '';
+  const text = itinerary.replace(/\r/g,'');
+  // 找出文中明確提到「第X天/dayX 包車 / 接送 / 不包車」的線索
+  let notes = [];
+
+  // 嘗試抓「暫定第三天跟第四天包車」「第五天機場接送」這類敘述
+  const carDays = [];
+  // 中文數字轉換
+  const zh = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+  function cn(s){ return zh[s]!==undefined?zh[s]:parseInt(s,10); }
+
+  // 「第X天...包車」
+  let re1 = /第\s*([一二三四五六七八九十\d]+)\s*天[^。\n]*?包車/g, m;
+  while((m=re1.exec(text))!==null){ carDays.push(cn(m[1])); }
+  // 「第X天跟第Y天包車」這種並列
+  let re2 = /第\s*([一二三四五六七八九十\d]+)\s*天\s*[跟和、與]\s*第?\s*([一二三四五六七八九十\d]+)\s*天[^。\n]*?包車/g;
+  while((m=re2.exec(text))!==null){ carDays.push(cn(m[1])); carDays.push(cn(m[2])); }
+
+  // 機場接送
+  let airport = null;
+  let ma = text.match(/第\s*([一二三四五六七八九十\d]+)\s*天[^。\n]*?(機場|送機|接送)/);
+  if(ma) airport = cn(ma[1]);
+
+  const uniqCarDays = [...new Set(carDays)].sort((a,b)=>a-b);
+
+  if(uniqCarDays.length){
+    notes.push('• 需包車天數：第 '+uniqCarDays.join('、')+' 天（整日包車）');
+  }
+  if(airport){
+    notes.push('• 機場接送：第 '+airport+' 天送機');
+  }
+  // 推測哪些天客人自理（有寫 day 但不在包車清單）
+  const allDays = [];
+  let red = /day(\d+)/gi, md;
+  while((md=red.exec(text))!==null){ allDays.push(parseInt(md[1],10)); }
+  const uniqAll = [...new Set(allDays)].sort((a,b)=>a-b);
+  const selfDays = uniqAll.filter(d=>!uniqCarDays.includes(d) && d!==airport);
+  if(selfDays.length && uniqCarDays.length){
+    notes.push('• 第 '+selfDays.join('、')+' 天客人未要求包車（行程為客人自行提供參考，不需安排車輛）');
+  }
+
+  if(!notes.length) return '';
+  return '🚗【客服用車統整】\n'+notes.join('\n');
+}
+
+function formatAges(raw){const p=raw.split(/[.,、\s/]+/).filter(x=>x); if(p.length&&p.every(x=>/^\d+(\.\d+)?$/.test(x)))return p.map(x=>x+'歲').join('、'); return raw;}
+function simplify(t){if(!t)return ''; if(t.includes('可以')||t.includes('接受')||t.includes('沒問題')||t.includes('就好'))return '接受'; if(t.includes('不')&&(t.includes('接受')||t.includes('要')))return '不接受'; return t.length>20?t.substring(0,20)+'…':t;}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escAttr(s){return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'&#10;');}
+function copyOne(btn){const c=btn.closest('.client-card').querySelector('.card-content'); navigator.clipboard.writeText(c.getAttribute('data-copy').replace(/&#10;/g,'\n')).then(()=>showToast('已複製！'));}
+function copyAll(){const cs=document.querySelectorAll('.card-content'); if(!cs.length){showToast('沒有內容');return;} const all=Array.from(cs).map(c=>c.getAttribute('data-copy').replace(/&#10;/g,'\n')).join('\n\n════════════\n\n'); navigator.clipboard.writeText(all).then(()=>showToast('已複製全部！'));}
+function clearInput(){document.getElementById('input').value=''; document.getElementById('output').textContent='整理結果會顯示在這裡...'; document.getElementById('stats').textContent=''; lastCards=[];}
+function showToast(m){const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000);}
+
+// ════ 分頁切換 ════
+function switchTab(name,btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='pending'&&getApiUrl())loadPending();
+}
+
+// ════ 一鍵把整理結果轉成待聯繫 ════
+function toPending(idx){
+  const c=lastCards[idx];
+  switchTab('pending',document.querySelectorAll('.tab-btn')[1]);
+  document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('f-name').value=c.name;
+  document.getElementById('f-phone').value=c.phone;
+  document.getElementById('f-data').value=c.data;
+  document.getElementById('f-status').value='待首次聯繫';
+  showToast('已帶入待聯繫表單，補充紀錄後按「加入清單」');
+}
+
+// ════ 雲端 Apps Script 串接 ════
+function getApiUrl(){let u=(document.getElementById('apiUrl').value||window._savedUrl||'').trim(); return u.replace(/[>\s\u3000]+$/g,'');}
+function saveApiUrl(){
+  // 自動清理網址：去頭尾空白、移除結尾多餘的 > 或標點
+  let u = document.getElementById('apiUrl').value.trim();
+  u = u.replace(/[>\s\u3000]+$/g,'');           // 移除結尾的 > 、空白、全形空白
+  u = u.replace(/^[<\s\u3000]+/,'');            // 移除開頭多餘字元
+  document.getElementById('apiUrl').value = u;     // 回填清理後的網址
+  window._savedUrl = u;
+  document.getElementById('cloudStatus').textContent='⏳ 連線中…';
+  loadPending();
+}
+
+function loadPending(){
+  const url=getApiUrl(); if(!url){document.getElementById('cloudStatus').textContent='⚠️ 請先貼上網址';return;}
+  document.getElementById('cloudStatus').textContent='⏳ 載入中…';
+  // 用 JSONP 繞過 CORS：動態插入 script 標籤
+  const cbName = 'jsonp_cb_' + Date.now();
+  window[cbName] = function(data){
+    renderPending(Array.isArray(data)?data:[]);
+    document.getElementById('cloudStatus').textContent='✅ 已同步 '+new Date().toLocaleTimeString();
+    cleanup();
+  };
+  const script = document.createElement('script');
+  script.src = url + '?action=list&callback=' + cbName;
+  script.onerror = function(){
+    document.getElementById('cloudStatus').textContent='❌ 連線失敗，請確認網址與部署設定';
+    cleanup();
+  };
+  function cleanup(){
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+  }
+  document.body.appendChild(script);
+  // 8秒逾時保護
+  setTimeout(function(){ if(window[cbName]){ document.getElementById('cloudStatus').textContent='❌ 連線逾時，請確認 Apps Script 已更新並重新部署'; cleanup(); } }, 8000);
+}
+
+function renderPending(rows){
+  const body=document.getElementById('pendBody');
+  document.getElementById('pendCount').textContent=(rows.length||0)+' 筆';
+  if(!rows||!rows.length){body.innerHTML='<tr><td colspan="8" style="text-align:center;color:#A89A65;padding:20px">目前沒有待聯繫的客人 🎉</td></tr>';return;}
+  const stCls={'待首次聯繫':'st-wait','已試聯繫待回':'st-retry','已聯繫上':'st-done','放棄':'st-give'};
+  body.innerHTML=rows.map((r,i)=>`<tr>
+    <td>${esc(r.date||'')}</td><td><b>${esc(r.name||'')}</b></td><td>${esc(r.phone||'')}</td>
+    <td><span class="status-pill ${stCls[r.status]||'st-wait'}">${esc(r.status||'')}</span></td>
+    <td>${esc(r.staff||'')}</td>
+    <td style="white-space:pre-wrap;max-width:200px">${esc(r.note||'')}</td>
+    <td style="white-space:pre-wrap;max-width:240px;font-size:11px">${esc(r.data||'')}</td>
+    <td><button class="mini-btn mini-pend" onclick="updateRow(${r.row})">更新</button></td>
+  </tr>`).join('');
+}
+
+function addPending(){
+  const url=getApiUrl(); if(!url){showToast('請先確認網址');return;}
+  const name=document.getElementById('f-name').value;
+  if(!name){showToast('請填客人姓名');return;}
+  const params={
+    action:'add',
+    date:document.getElementById('f-date').value,
+    name:name,
+    phone:document.getElementById('f-phone').value,
+    status:document.getElementById('f-status').value,
+    staff:document.getElementById('f-staff').value,
+    note:document.getElementById('f-note').value,
+    data:document.getElementById('f-data').value
+  };
+  jsonpSend(url, params, function(res){
+    showToast('✅ 已加入雲端清單');
+    ['f-name','f-phone','f-staff','f-note','f-data'].forEach(id=>document.getElementById(id).value='');
+    // 寫入後伺服器直接回傳最新清單，立刻顯示
+    if(Array.isArray(res)) renderPending(res);
+    else loadPending();
+  });
+}
+
+function updateRow(rowNum){
+  const url=getApiUrl(); if(!url)return;
+  const newStatus=prompt('更新狀態（待首次聯繫 / 已試聯繫待回 / 已聯繫上 / 放棄）：');
+  if(!newStatus)return;
+  const newNote=prompt('補充聯繫紀錄（會接在原紀錄後面）：')||'';
+  const staff=prompt('你的名字：')||'';
+  jsonpSend(url, {action:'update',row:rowNum,status:newStatus,appendNote:newNote,staff:staff}, function(res){
+    showToast('✅ 已更新');
+    if(Array.isArray(res)) renderPending(res);
+    else loadPending();
+  });
+}
+
+// ── JSONP 送出（GET 帶參數，繞過 CORS，可寫入）──
+function jsonpSend(url, params, onDone){
+  const cbName='jsonp_send_'+Date.now();
+  window[cbName]=function(res){ cleanup(); if(onDone)onDone(res); };
+  let qs='?'+Object.keys(params).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(params[k]||'')).join('&');
+  qs+='&callback='+cbName;
+  const script=document.createElement('script');
+  script.src=url+qs;
+  script.onerror=function(){ cleanup(); showToast('❌ 寫入失敗，請確認網址'); };
+  function cleanup(){ delete window[cbName]; if(script.parentNode)script.parentNode.removeChild(script); }
+  document.body.appendChild(script);
+  setTimeout(function(){ if(window[cbName]){ cleanup(); if(onDone)onDone(); } }, 8000);
+}
+
+
+// ════ 客服人員清單管理（雲端同步 + 本地備援）════
+let STAFF_LIST = JSON.parse(localStorage.getItem('staffList') || '["ABBY","UNA","RENA","NIA","77"]');
+
+function renderStaffBtns(){
+  const box = document.getElementById('staffBtns');
+  box.innerHTML = STAFF_LIST.map(s =>
+    `<button type="button" class="staff-pill" onclick="pickStaff(this,'${s.replace(/'/g,"\\'")}')">${s}</button>`
+  ).join('');
+}
+function pickStaff(btn, name){
+  document.querySelectorAll('#staffBtns .staff-pill').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('f-staff').value = name;
+}
+function toggleStaffEdit(){
+  const box = document.getElementById('staffEditBox');
+  if(box.style.display==='none'){
+    document.getElementById('staffListEdit').value = STAFF_LIST.join('\n');
+    box.style.display='block';
+  } else {
+    box.style.display='none';
+  }
+}
+// 名單為本地儲存（不依賴雲端，避免影響連線）
+function loadStaffList(){
+  // 名單存在各自瀏覽器，無需雲端，這裡只重新渲染按鈕
+  renderStaffBtns();
+}
+// 儲存名單（本地）
+function saveStaffList(){
+  const txt = document.getElementById('staffListEdit').value;
+  STAFF_LIST = txt.split('\n').map(s=>s.trim()).filter(s=>s);
+  localStorage.setItem('staffList', JSON.stringify(STAFF_LIST));
+  renderStaffBtns();
+  toggleStaffEdit();
+  showToast('✅ 人員名單已更新');
+}
+renderStaffBtns();
+
+// 預設今天日期
+document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
+
+// ── 免設定：自動帶入已寫死的雲端網址並連線 ──
+window._savedUrl = "https://script.google.com/macros/s/AKfycbwNwPQH7dVtVgEgZio-OTIEJ4J-lgZM1mXYLMNhjxRCp5kbQ4mJiYtSdZADAIueBl-V1A/exec";
+// 頁面一載入就先把名單按鈕畫出來
+renderStaffBtns();
+// 切到待聯繫分頁時會自動 loadPending；這裡也先靜默載入一次
+window.addEventListener('load', function(){
+  // 不主動切分頁，但先預載清單，使用者點過去就有資料
+  if(typeof loadPending === 'function'){ /* 待使用者切換分頁時觸發 */ }
+});
+</script>
+</body>
+</html>
